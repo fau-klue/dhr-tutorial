@@ -1,6 +1,11 @@
-# Statistik für Digitale GeisteswissenschaftlR
+# Statistik für (digitale) GeisteswissenschaftlR
 
-Das Tutorial gibt eine Einführung in die Programmiersprache R anhand von Anwendungen zur quantitativen Analyse [von Daten aus den Digital Humanities]. In interaktiven Sitzungen lernen die Teilnehmer:innen zunächst die Durchführung von Standardmethoden der Statistik (Kenngrößen, Visualisierungen, Signifikanztests) mittels R und RStudio kennen.  Im Anschluss werden Anwendungen aus der Korpuslinguistik (Keywords & Kollokate) sowie (verallgemeinerte) Lineare Modelle eingeübt.
+Dieses Tutorial ist das richtige für Sie, wenn Sie …
+- … bereits wissen, wie arithmetisches Mittel, Median und Standardabweichung berechnet werden, aber solche Berechnungen gerne in R vornehmen würden.
+- … hübsche Visualisierungen in R erstellen wollen.
+- … gerne Regressionsmodelle (oder kompliziertere Modelle) in R anpassen würden.
+- … Interesse an einem Einblick in automatische Textverarbeitung haben.
+- … endlich von SPSS loskommen möchten.
 
 ## Daten
 - ltwby2018_news_parties.csv: Tokenhäufigkeiten von drei Parteien in 10 Zeitungen [Kontingenz]
