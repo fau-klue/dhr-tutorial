@@ -1,5 +1,7 @@
 # Statistik für (digitale) GeisteswissenschaftlR
 
+Dieses Tutorial gibt eine Einführung in die Verwendung von R und RStudio. Anhand von Beispieldaten aus den Digital Humanities beschäftigen wir uns mit statistischen Standardmethoden, Visualisierung, Anwendungen aus der Korpuslinguistik (Keywords & Kollokate) sowie mit (verallgemeinerten) linearen Modellen.
+
 Dieses Tutorial ist das richtige für Sie, wenn Sie …
 - … bereits wissen, wie arithmetisches Mittel, Median und Standardabweichung berechnet werden, aber solche Berechnungen gerne in R vornehmen würden.
 - … hübsche Visualisierungen in R erstellen wollen.
