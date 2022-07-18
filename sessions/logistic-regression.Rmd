@@ -1,0 +1,237 @@
+---
+title: 'Situng 11: Logistische Regression'
+author: "Philipp Heinrich"
+date: "12. Juli 12022"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    collapsed: false
+    smooth_scroll: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = FALSE}
+rm(list = ls())
+library(tidyverse)
+```
+
+## Logistic Regression
+
+- so far: metric response
+- what if response is categorical?
+- data set: utterances with or without gesture
+- goal: predict whether there is a gesture accompanying the utterance
+
+```{r}
+gestures <- read_tsv("../data/gestures.tsv", col_types = "fffcdl")
+glimpse(gestures)
+```
+
+- verb: which verb was used?
+- metaphor: was the verb used metaphorically or literally?
+- surface: surface realisation of verb (not used here)
+- agitation: score for how agitated the conversation was
+- formality: formal (T) or informal (F) setting?
+
+```{r}
+table(gestures$gesture)
+```
+
+- pretty uniform distribution in response variable
+
+### simple logistic regression
+
+#### verb
+```{r}
+gestures %>% ggplot(aes(x = verb, fill = gesture)) + 
+  geom_bar(position = position_dodge()) 
+```
+
+- mixed picture: some verbs do indeed seem to elicit more gestures than others
+- fitting a model quasi-identical to fitting linear model
+- call `glm()` (generalised linear model) instead of `lm()`
+- ask for logistic regression via `family="binomial"`:
+```{r}
+model.verb <- glm(gesture ~ verb + 0,
+                  family = "binomial", data = gestures)
+summary(model.verb)
+
+# identical:
+model.verb <- glm(gesture ~ verb + 0,
+                  family = binomial(link = logit), data = gestures)
+
+summary(model.verb)
+```
+
+- NB: we do not fit an intercept (we do this by adding "+ 0" to the formula, see above), so that intercepts for each category are easily interpretable
+- some significance for some verbs
+
+#### metaphorical use
+```{r}
+gestures %>% ggplot(aes(x = metaphor, fill = gesture)) + 
+  geom_bar(position = position_dodge())
+```
+
+- metaphorical vs. literal doesn't seem to explain much
+
+```{r}
+model.metaphor <- glm(gesture ~ metaphor + 0,
+                      family = "binomial", data = gestures)
+```
+
+```{r}
+summary(model.metaphor)
+```
+
+- not significant
+
+#### formality of situation
+```{r}
+gestures %>% ggplot(aes(x = formality, fill = gesture)) + 
+  geom_bar(position = position_dodge())
+```
+
+- formal situations seem to elicit more gestures!
+
+```{r}
+model.formality <- glm(gesture ~ formality + 0,
+                       family = "binomial", data = gestures)
+
+summary(model.formality)
+```
+
+- significant intercepts
+
+#### agitation
+
+- now: metric predictor
+
+```{r}
+gestures %>% ggplot(aes(x = gesture, y = agitation)) + 
+  geom_boxplot(notch = T)
+
+gestures %>% ggplot(aes(x = agitation)) + 
+  geom_histogram(binwidth = 1) +
+  facet_wrap(~ gesture, ncol = 1)
+```
+
+- looks like people produce more gestures when the conversation scores higher on the agitation measure (you don't say!)
+
+```{r}
+model.agitation <- glm(gesture ~ agitation,
+                       family = "binomial", data = gestures)
+
+summary(model.agitation)
+```
+
+- significant intercepts
+- visualisation:
+
+```{r}
+gestures %>% 
+  mutate(gesture = (gesture == 1) + 0) %>% 
+  ggplot(aes(x = agitation, y = gesture)) + 
+  geom_point() +
+  geom_smooth(method = glm, se = FALSE, method.args = list(family = binomial))
+```
+```{r}
+explanatory_data <- expand_grid(
+  agitation = seq(-10, 10, .5)
+)
+predicted_data <- explanatory_data %>% mutate(
+  predict_odds = predict(model.agitation, explanatory_data),  # odds-ratio
+  predict_prob = predict(model.agitation, explanatory_data, type = 'response'),  # probability
+  predict_most = round(predict_prob) # most likely
+)
+gestures %>% 
+  mutate(gesture = (gesture == 1) + 0) %>% 
+  ggplot(aes(x = agitation, y = gesture)) + 
+  geom_point() +
+  geom_smooth(method = glm, se = FALSE, method.args = list(family = binomial)) +
+  geom_point(aes(x = agitation, y = predict_prob), color = 'yellow', data = predicted_data) +
+    geom_point(aes(x = agitation, y = predict_most), 
+               color = 'red', shape = 15, size = 3, alpha = .5,
+               data = predicted_data)
+```
+
+### multiple logistic regression
+
+- function call works identically to multiple linear regression:
+```{r}
+model <- glm(gesture ~ verb + formality + agitation + metaphor + 0,
+             family = "binomial", data = gestures)
+summary(model)
+```
+
+#### significance of variables
+
+- for each row: does the variable explain something that hasn't been explained by the ones before?
+- here: likelihood-ratio test
+```{r}
+anova(model, test = "LRT")
+```
+
+- NB: order important:
+```{r}
+model2 <- glm(gesture ~ formality + agitation + metaphor +verb + 0,
+              family = "binomial", data = gestures)
+anova(model2, test = "LRT")
+```
+
+- extra NB: you can also use `anova()` to explicitly test different models against one another:
+```{r}
+anova(model.verb, model.metaphor, test = 'LRT')
+```
+
+
+#### prediction
+
+```{r}
+explanatory_data <- expand_grid(
+  verb = c("hurl", "catapult"),
+  metaphor = factor(c('metaphorical', 'literal')),
+  agitation = seq(-10, 10, .5),
+  formality = c(T, F)
+)
+predicted_data <- explanatory_data %>% mutate(
+  predict_odds = predict(model, explanatory_data),  # odds-ratio
+  predict_prob = predict(model, explanatory_data, type = 'response')  # probability
+)
+```
+
+
+```{r}
+gestures %>% 
+  mutate(gesture = (gesture == 1) + 0) %>% 
+  ggplot(aes(x = agitation, y = gesture)) + 
+  geom_point() +
+  geom_smooth(formula = y ~ x, method = glm, se = FALSE, method.args = list(family = binomial)) +
+  geom_point(aes(y = predict_prob, 
+                 x = agitation, 
+                 color = verb, shape = formality, alpha = metaphor), 
+             data = predicted_data)
+```
+
+
+#### goodness of fit
+
+- accuracy: look at table
+```{r}
+gestures.fitted <- gestures %>% mutate(
+  fitted = model$fitted.values,
+  predicted = round(fitted)
+)
+mean(gestures.fitted$gesture == gestures.fitted$predicted)
+```
+
+- best to use library yardstick for sensitivity (recall), specificity, precision
+```{r}
+model.eval <- yardstick::conf_mat(table(gestures.fitted$gesture, gestures.fitted$predicted))
+summary(model.eval, event_level = 'first')
+summary(model.eval, event_level = 'second')
+```
+

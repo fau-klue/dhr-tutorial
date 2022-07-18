@@ -17,3 +17,4 @@ Dieses Tutorial ist das richtige für Sie, wenn Sie …
 
 ## Sitzungen
 - linear-model.[Rmd|html]: Lineare Regression (LDT, Response ist Reaktionszeit)
+- logistic-regression.[Rmd|html]: Logistische Regression (Gesten, Response ist binomial)
