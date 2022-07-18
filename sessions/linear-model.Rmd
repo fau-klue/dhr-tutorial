@@ -1,0 +1,557 @@
+---
+title: 'Sitzung 10: Lineares Modell'
+author: "Philipp Heinrich"
+date: "02. Juli 12022"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    collapsed: false
+    smooth_scroll: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = FALSE}
+library(tidyverse)
+```
+
+## Simple Linear Regression
+
+### data: lexical decision task
+
+- lexical decision task: respondents have to determine whether displayed item is a "word" (vs. gibberish "not-word")
+- data taken from the English Lexicon Project
+- here: have a look at response time for actual words
+
+```{r}
+ldt <- read_csv("../data/winter-elp.csv", show_col_types = FALSE)
+glimpse(ldt)
+```
+
+- hypothesis: the more frequent the word, the easier to decide (the shorter the time needed to decide)
+- plot response time against frequency to visualise effect:
+
+```{r}
+ldt %>% 
+  ggplot(aes(x = freq, y = rt, label = word)) +
+  geom_point() +
+  geom_text(nudge_y = -10)
+```
+
+some terminology:
+
+- $y$ is the **dependent** or explained variable (response, outcome)
+- $x$ is the **independent** or explanatory variable (predictor, regressor)
+
+log-scaling:
+
+- looks indeed like more frequent words elicit shorter response times
+- in general, it is useful to transform frequencies to a log-scale
+- log-frequency: "order" or "magnitude" of frequency
+
+```{r}
+ldt %>%
+  ggplot(aes(x = log(freq), y = rt, label = word)) + 
+  geom_point() +
+  geom_text(nudge_y = -10) +
+  geom_smooth(formula = y ~ x, method = 'lm', se = FALSE)
+```
+
+- now this looks like a _linear_ dependency, indicated by the _line_ of best fit
+
+### line of best fit
+
+- how do we get the line of best fit?
+- minimise sum of squared errors (= vertical difference between points and line)
+- magic very super-complicated formula (/s) yields slope and intercept of _linear regression_:
+
+$$
+\text{rt} \approx b_0 + b_1\cdot \log(\text{freq})
+$$
+
+```{r}
+(model <- lm(rt ~ log(freq), data = ldt))
+```
+- note that above notation includes the intercept, it is equivalent to
+```{r}
+lm(rt ~ 1 + log(freq), data = ldt)
+```
+
+interpretation:
+
+- intercept: a word with $\log(\text{freq}) = 0$ ($\text{freq}=1$) elicits a response time of $871ms$
+- slope: every unit step on the $x$-axis leads to $30ms$ less response time
+
+> Q: How long would you expect the response time to be for a word that appears 100,000 times? How long for one that appears $10^{15}$ times? How long for one that appears 0 times? How long for one that appears -1000 times?
+
+### residuals and assumptions
+
+- the residuals are the difference between the fitted values and the actually observed ones
+- the complete model with residuals $\varepsilon$ looks like this:
+
+$$
+\text{rt} = b_0 + b_1\cdot \log(\text{freq}) + \varepsilon
+$$
+
+- we can directly access the residuals via
+```{r}
+model$residuals
+```
+- fitting a linear model presupposes two important assumptions regarding these residuals:
+  1. normally distributed and
+  2. homoscedastic (= equal variance across the $x$-axis)
+- checking these assumptions is called "running the model diagnostics"
+- it is usually done visually:
+
+```{r}
+plot(model)
+```
+
+- the first two plots are the most important ones
+  1. the first one is suited for checking homoscedasticity
+  2. the second one for checking normality
+- here it looks like a good model, since both assumptions seem to be met
+
+- NB: we can also check most important descriptive figures of distribution of residuals in model summary:
+```{r}
+summary(model)
+```
+
+
+### goodness of fit: $R^2$
+
+- how well does the model describe the data?
+- one possibility is to check the sum of squared errors (SSE), where error means residual
+- SSE is minimized for the found parameters, but is the linearity assumption reasonable at all?
+- idea: compare SSE to a null model that does not take into account the predictor:
+
+```{r}
+(model.null <- lm(rt ~ 1, data = ldt))
+```
+
+- this is obviously just the mean of the dataset
+```{r}
+mean(ldt$rt)
+```
+
+- we can calculate SSE via
+```{r}
+sum(model$residuals ** 2)
+sum(model.null$residuals ** 2)
+```
+
+- we see: SSE of null model is way higher than SSE of full model
+- a standard measure for the _goodness of fit_ is the ratio of _explained variance_ in comparison to the variance of the null model
+- a bit of arithmetic shows that this is equivalent to
+
+$$R^2:=1-\dfrac{\text{SSE}_\text{model}}{\text{SSE}_\text{null}}$$
+
+```{r}
+1 - sum(model$residuals ** 2) / sum(model.null$residuals ** 2)
+```
+
+- for studies in linguistics, such a high $R^2$ looks pretty good
+- (NB we're not doing rocket science here)
+- a bit more arithmetic shows that $R^2$ is the squared correlation coefficient:
+```{r}
+cor(log(ldt$freq), ldt$rt) ** 2
+```
+
+- we can get this number straight away using
+```{r}
+summary(model)$r.squared
+```
+
+### goodness of fit: RSE (Residual Standard Error)
+
+- measure for how much a prediction is typically off
+```{r}
+summary(model)$sigma
+# just the mean of the squared residuals (taking into account the actual degrees of freedom)
+sqrt(sum(model$residuals ** 2) / (length(model$residuals) - length(model$coefficients)))
+```
+
+- i.e. on average, we assume we're off by about $63ms$
+
+### coefficients & predictions
+
+```{r}
+model$coefficients
+```
+
+- predictions on original data:
+```{r}
+model$fitted.values
+```
+
+- equivalent:
+```{r}
+predict(model, ldt)
+```
+
+- predictions on some other data:
+```{r}
+explanatory_data <- tibble(
+  freq = c(-500, 1.2, 10000, 10**100)
+)
+predict(model, explanatory_data)
+```
+
+### significance
+
+- $R^2$ is an effect size: _how much_ variance is explained
+- how to assess whether model fit is significant?
+```{r}
+summary(model)
+```
+
+- look at p-value of each coefficient (and significance coding next to it)
+- look at p-value at very bottom: is the model significant as a whole?
+
+### standardisation and centring
+
+- log-scaling often useful, changes model fit
+- other transformation possible, e.g. polynomial
+
+- linear transformations, on the other hand, do _not_ change model fit
+- it is often recommended to centre or standardise variables
+  - centring = subtract mean
+  - standardising = subtract mean, divide by std. dev.
+- goal: resulting variables are more easily interpretable
+
+```{r}
+ldt <- ldt %>%
+  mutate(log_freq = log(freq),
+         log_freq_z = (log_freq - mean(log_freq)) / sd(log_freq),
+         rt_z = (rt - mean(rt)) / sd(rt))
+```
+
+- NB: "z" stands for z-score (cf. normally distributed variables)
+
+```{r}
+ldt %>%
+  ggplot(aes(x = log_freq, y = rt, label = word)) + 
+  geom_point() +
+  geom_text(nudge_y = -10) +
+  geom_smooth(formula = y ~ x, method = 'lm', se = FALSE)
+
+ldt %>%
+  ggplot(aes(x = log_freq_z, y = rt, label = word)) + 
+  geom_point() +
+  geom_text(nudge_y = -10) +
+  geom_smooth(formula = y ~ x, method = 'lm', se = FALSE)
+
+ldt %>%
+  ggplot(aes(x = log_freq_z, y = rt_z, label = word)) + 
+  geom_point() +
+  geom_text(nudge_y = -.1) +
+  geom_smooth(formula = y ~ x, method = 'lm', se = FALSE)
+```
+
+- they all look exactly the same, just on different scales
+- and indeed the models are equally good:
+```{r}
+model1 <- lm(rt ~ log_freq, data = ldt)  # same as original model
+model2 <- lm(rt ~ log_freq_z, data = ldt)
+model3 <- lm(rt_z ~ log_freq_z, data = ldt)
+summary(model1)$r.squared
+summary(model2)$r.squared
+summary(model3)$r.squared
+```
+
+- however, the coefficients are different:
+```{r}
+model1$coefficients
+model2$coefficients
+model3$coefficients
+```
+
+- interpretation for intercept:
+  1. a word with $\log(\text{freq}) = 0$ ($\text{freq}=1$) elicits a response time of $871ms$
+  2. an "averagely frequent" word elicits a response time of $680ms$
+  3. 0
+
+- interpretation for slope:
+  1. every unit step on the $x$-axis leads to $30ms$ less response time
+  2. stepping one std. dev. of $\log\text{freq}$ to the right decreases rt by $101ms$
+  3. correlation coefficient
+
+### tidy models
+
+- output format of `lm()` and `summary()` not straightforward
+- use tibbles and package `broom` for tidy formats
+- look at model as a whole
+```{r}
+broom::glance(model)
+```
+
+- look at coefficients
+```{r}
+broom::tidy(model)
+```
+
+- look at each fitted observation
+```{r}
+broom::augment(model)
+```
+
+## Categorical Predictors
+
+- until now, we were only looking at metric variables
+- now: categorical predictor (still metric response)
+- what about the _kind of words_
+- here: stopwords (easily accessible)
+
+```{r}
+# whole data set
+ldt.c <- read_csv("../data/winter-elp-complete.csv", show_col_types = FALSE)
+```
+
+
+```{r}
+stops <- stopwords::stopwords()  # English stopwords
+ldt.c <- ldt.c %>% mutate(stop = factor(word %in% stops))
+```
+
+- stopwords are predominantly very frequent:
+```{r}
+ldt.c %>% ggplot(aes(x = stop, y = rt, fill = stop)) +
+  geom_boxplot()
+
+ldt.c %>% ggplot(aes(x = log(freq), fill = stop)) +
+  geom_density(alpha = .5)
+```
+
+- and the response variable?
+```{r}
+ldt.c %>% ggplot(aes(x = log(freq), y = rt, color = stop)) +
+  geom_point()
+```
+
+- remember easiest form of linear model:
+$$
+y = b_0 + b_1\cdot x + \varepsilon
+$$
+
+- obviously, does not work if $x$ is categorical
+- however, we can just use a _dummy variable_, coding the factor as a metric variable
+- here: _treatment coding_: we replace one of the levels as 0 (the _reference level_), the other one as 1
+
+```{r}
+model.stop <- lm(rt ~ stop, data = ldt.c)
+```
+
+- i.e. the prediction for reference level (here: FALSE) is $770ms$
+- the prediction for stopwords is $605ms$
+- and these are obviously just the mean values:
+
+```{r}
+ldt.c %>% group_by(stop) %>% summarise(mean_rt = mean(rt))
+```
+
+```{r}
+summary(model.stop)
+```
+```{r}
+plot(model.stop)
+```
+
+
+## Multiple Regression
+
+- up until now: just one predictor
+- multiple regression: use several predictors
+- here: word length (measured in number of phonemes) might also play a role
+- clearly, shorter words are read more quickly, yielding a faster response
+- NB: frequent words tend to be shorter! conflation of effects
+
+### two simple linear regressions
+$$
+\text{rt} = b_0 + b_1\cdot \log(\text{freq}) + \varepsilon
+$$
+
+```{r}
+ldt.c %>% ggplot(aes(x = log(freq), y = rt)) + 
+  geom_point() +
+  geom_smooth(formula = y ~ x, method = 'lm', se = FALSE)
+```
+
+```{r}
+model.freq <- lm(rt ~ log(freq), data = ldt.c)
+```
+
+
+```{r}
+broom::tidy(model.freq)
+```
+
+
+```{r}
+broom::glance(model.freq)
+```
+
+
+```{r}
+plot(model.freq)
+```
+
+$$
+\text{rt} = b_0 + b_1\cdot \text{length} + \varepsilon
+$$
+```{r}
+ldt.c %>% ggplot(aes(x = length, y = rt)) + 
+  geom_point() +
+  geom_smooth(formula = y ~ x, method = 'lm', se = FALSE)
+```
+
+```{r}
+model.length <- lm(rt ~ length, data = ldt.c)
+```
+
+
+```{r}
+broom::tidy(model.length)
+```
+
+
+```{r}
+broom::glance(model.length)
+```
+
+```{r}
+plot(model.length)
+```
+
+
+### multiple predictors
+
+#### continuous + continuous
+- now: take both as explanatory variables
+$$
+\text{rt} = b_0 + b_1\cdot \log(\text{freq}) + b_2\cdot \text{length} + \varepsilon
+$$
+
+```{r}
+summary(lm(rt ~ log(freq) + length, data = ldt.c))
+```
+
+- this is obviously not the same as fitting two separate models
+- reasonable interpretation for standardised (or at least centred) variables
+
+```{r}
+ldt.c <- ldt.c %>% mutate(log_freq = log(freq),
+                          log_freq_z = (log_freq - mean(log_freq) / sd(log_freq)),
+                          length_c = (length - mean(length)))
+model.freq.length <- lm(rt ~ log_freq_z + length_c, data = ldt.c)
+```
+
+
+```{r}
+summary(model.freq.length)
+```
+
+- intercept: an averagely frequent word with average length elicits a response time of $825ms$
+- slope 1: increase of 1 std. dev. of magnitude of frequency (c.p.): decrease of $30ms$
+- slope 2: increase of 1 phoneme (c.p.): increase of $20ms$
+
+```{r}
+broom::glance(model.freq.length)
+broom::tidy(model.freq.length)
+```
+
+#### categorical + continuous
+- similarly, categorical predictors can be included
+```{r}
+model.length.stop <- lm(rt ~ length_c + stop, data = ldt.c)
+```
+
+```{r}
+summary(model.length.stop)
+```
+
+- an averagely long word, which is not a stopword, elicits a reaction time of $770ms$
+- visualisation via additional library
+```{r}
+ldt.c %>% ggplot(aes(length_c, rt, color = stop)) +
+  geom_point(alpha = .5) +
+  moderndive::geom_parallel_slopes(se = F)
+```
+
+
+#### categorical + categorical
+- one mean for each category
+
+### interactions
+
+#### continuous * continuous
+- twisted planes
+
+#### categorical * continuous
+
+- different slopes for different categories
+```{r}
+model.length.stop.inter <- lm(rt ~ length_c * stop, data = ldt.c)
+```
+
+```{r}
+summary(model.length.stop.inter)
+```
+
+```{r}
+ldt.c %>% ggplot(aes(length_c, rt, color = stop)) +
+  geom_point(alpha = .5) +
+  geom_smooth(method = 'lm', se = F)
+```
+
+#### categorical * categorical
+- full four-way split 
+
+### collinearity
+- collinearity of predictors means that at least one predictor can be described as a linear combination of the other predictors
+- let's measure word length by number of characters:
+
+```{r}
+ldt.c <- ldt.c %>% mutate(length_char = str_length(word),
+                          length_char_c = length_char - mean(length_char))
+ldt.c %>% ggplot(aes(x = length, y = length_char_c)) + geom_point() +
+  geom_smooth(formula = y ~ x, method = 'lm', se = FALSE)
+```
+
+- clearly the two variables measuring length are somewhat collinear to one another!
+- what does the model do?
+
+```{r}
+model.length.length <- lm(rt ~ length_c + length_char_c, data = ldt.c)
+
+rbind(
+  broom::glance(model.length),
+  broom::glance(model.length.length)
+)
+
+rbind(
+  broom::tidy(model.length),
+  broom::tidy(model.length.length)
+)
+```
+
+- adding another predictor has not given us much gain in $R^2$ (also look at adjusted $R^2$)
+- it did however change the coefficient for the length drastically, changing the interpretation!
+
+- we can use variance inflation factors (vif) to check if we are dealing with collinearity
+- vif should be close to one; it should start worrying you when it's above 5
+
+```{r}
+car::vif(model.length.stop)
+car::vif(model.length.length)
+```
+
+### model diagnostics
+
+- interpretation of diagnostic plots as above
+
+```{r}
+plot(model.length.stop)
+```

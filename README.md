@@ -14,3 +14,6 @@ Dieses Tutorial ist das richtige für Sie, wenn Sie …
 - *.lemma.tsv.gz: zwei Lemma-Häufigkeitslisten [Keywords]
 - winter-elp*: Ergebnisse eines Lexical Decision Task [lineare Regression]
 - smspam.tsv: SMS (ham vs. spam) [logistische Regression]
+
+## Sitzungen
+- linear-model.[Rmd|html]: Lineare Regression (LDT, Response ist Reaktionszeit)
