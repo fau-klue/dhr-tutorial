@@ -9,6 +9,10 @@ Dieses Tutorial ist das richtige für Sie, wenn Sie …
 - … Interesse an einem Einblick in automatische Textverarbeitung haben.
 - … endlich von SPSS loskommen möchten.
 
+## Vorbereitung
+- [Vorbereitung.pdf](sessions/Vorbereitung.pdf) für Literaturempfehlungen, Installationsanleitungen für R und RStudio, Orientierung in RStudio und allererste Schritte mit R
+- [Erste Schritte mit R.Rmd](sessions/Erste%20Schritte%20mit%20R.Rmd)
+
 ## Daten
 - ltwby2018_news_parties.csv: Tokenhäufigkeiten von drei Parteien in 10 Zeitungen [Kontingenz]
 - *.lemma.tsv.gz: zwei Lemma-Häufigkeitslisten [Keywords]
