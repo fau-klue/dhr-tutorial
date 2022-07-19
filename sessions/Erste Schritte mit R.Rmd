@@ -1,0 +1,314 @@
+---
+title: "Erste Schritte mit R"
+author: "Andreas Blombach, Philipp Heinrich"
+date: "20.7.2022"
+output:
+  html_document:
+    theme: readable
+    highlight: tango
+    toc: true
+    toc_float: true
+    fig_width: 10
+    df_print: paged
+---
+
+
+Hallo! Du hast es in die erste Skriptdatei geschafft -- sehr schön!
+
+## Vorbemerkungen
+
+Ein kurzer Hinweis zu Beginn:
+Dieses Dokument ist ein R-Markdown-Dokument. Es enthält also nicht nur R-Code,
+sondern auch formatierten Text wie diesen. In RStudio lassen sich daraus mit den
+Paketen `knitr` und `rmarkdown` speziell formatierte HTML-Dateien erzeugen (oder
+PDFs oder Word-Dateien usw.). Überschriften, Textformatierungen, Listen usw.
+werden hierzu nach den Vorgaben von R Markdown gekennzeichnet (siehe hierzu
+http://rmarkdown.rstudio.com/lesson-1.html).
+
+Der Teil am Anfang des Skripts ("title", "author" usw.) hängt auch damit
+zusammen.
+
+Und gleich noch ein Hinweis:  
+Ein hilfreiches "Cheatsheet" für R gibt es z.B. unter:
+https://github.com/rstudio/cheatsheets/blob/master/base-r.pdf
+
+
+Nun aber weiter mit den Grundlagen von R! Gedacht ist dieses Skript so, dass du
+die Zeilen, die keine Kommentare sind, direkt ausführen kannst. Code steht hier
+in separaten Blöcken, sog. Chunks. Mit Klick auf den "Play"-Button rechts wird
+der Code ausgeführt:
+
+```{r}
+print("Dieser Satz wird unten auf der Konsole angezeigt, wenn der Chunk ausgeführt wird.")
+```
+
+Eine bessere Idee ist aber vielleicht, die Zeilen noch einmal selbst unten in
+der Konsole einzutippen oder in ein eigenes Skript zu übernehmen (gerne auch mit
+Abwandlungen und eigenen Experimenten) -- das dürfte einen besseren Lerneffekt
+haben.
+
+
+
+## Datentypen
+In R gibt es viele verschiedene Datentypen, die uns aber (zum Glück) nicht alle
+interessieren.
+
+Wichtig für uns sind v.a. die folgenden:
+
+Basistypen:
+
+- Zahlen (integers & doubles)
+- logische Werte (TRUE und FALSE)
+- Zeichenketten/Strings
+
+Datenstrukturen:
+
+- Vektoren
+- Faktoren (geordnet und ungeordnet)
+- Matrizen
+- Tabellen (data.frame, tibble, data.table)
+- Listen
+
+Wir sehen uns zuerst Zahlen, logische Werte, Zeichenketten und Vektoren an. Der
+Umgang mit Faktoren und Tabellen kommt dann im Workshop.
+
+
+
+### Zahlen (kennen wir schon)
+
+```{r}
+a <- 42
+b <- 3.742 # Achtung: Punkt statt Komma!
+```
+
+Etwas verwirrend kann die Kurznotation sein. Um das zu demonstrieren,
+definieren wir zwei Variablen und geben ihre Werte direkt aus -- zwei
+oder mehr Eingaben lassen sich in einer Zeile schreiben, wenn man sie
+mit Strichpunkten trennt (guter Stil ist das aber nicht unbedingt).
+```{r}
+c <- 1.4e5; c # e5 heißt, das Komma wird um 5 Stellen nach rechts verschoben
+d <- 1.4e-3; d # hier entsprechend um 3 Stellen nach links
+```
+
+Lange Zahlen gibt R automatisch in dieser Kurzschreibweise aus:
+```{r}
+e <- 0.000014; e
+```
+
+Intern unterscheidet R übrigens zwischen ganzen Zahlen (integer) und
+Fließkommazahlen (double). Das ist für uns nicht weiter von Belang, aber die
+Bezeichnungen sieht man manchmal.
+
+
+### Logische Werte: TRUE und FALSE
+TRUE ist uns bereits als Argument für Funktionen begegnet. TRUE oder FALSE
+werden auch oft ausgegeben, wenn wir irgendetwas überprüfen, z.B., ob die Werte
+von zwei Variablen übereinstimmen:
+```{r}
+a == b
+```
+
+a ist natürlich größer als b:
+```{r}
+a > b
+```
+
+== und > sind logische Operatoren. Daneben gibt es auch noch folgende:
+```{r}
+a >= b # größer oder gleich
+a < b # kleiner als
+a <= b # kleiner oder gleich
+a != b # ungleich
+```
+
+Das Ausrufezeichen kann auch alleine vorkommen:
+```{r}
+!(a < b) # "nicht"; gibt TRUE zurück, wenn der Ausdruck danach FALSE ist
+```
+
+Mit & (und) und | (oder) lassen sich Bedingungen verknüpfen:
+```{r}
+a > b & a != b # TRUE, wenn beide Seiten TRUE sind
+a < b | a > b # TRUE, wenn mind. eine der beiden Seiten TRUE ist
+```
+
+Wenn wir wissen wollen, ob nur eine der beiden Seiten TRUE ist, ob also entweder
+die erste oder die zweite TRUE ist, brauchen wir das sog. ausschließende/
+exklusive Oder (XOR, Kontravalenz):
+```{r}
+xor(a < b, a > b) # TRUE, nur eins von beiden trifft zu
+xor(a > b, a != b) # FALSE, denn beides trifft zu
+```
+
+Es gibt auch noch && und ||, die sich etwas anders verhalten als & bzw. | -- das
+aber nur als Hinweis am Rande.
+
+
+### Zeichenketten/Strings (R-Bezeichnung: character)
+Wörter und sonstige Zeichenketten werden in Anführungszeichen (einfach oder
+doppelt) geschrieben:
+```{r}
+f <- "ein"
+g <- "Wort"
+```
+
+Rechnen können wir damit nicht, dafür aber diverse andere Operationen ausführen
+-- an dieser Stelle nur zwei Beispiele:
+```{r}
+paste(f, g) # zusammenfügen
+nchar(g) # Zeichenanzahl ausgeben
+```
+
+### Vektoren
+Vektoren sind der wohl wichtigste Datentyp in R.
+
+Ein Vektor ist eine Liste von Daten desselben Typs (dagegen lassen sich mit
+list() auch Listen von Daten unterschiedlicher Typen erzeugen, das brauchen wir
+aber vorerst nicht). Einen Vektor erzeugen wir mit c():
+```{r}
+testvektor <- c(a, b, 64, 42)
+testvektor # Daten in einem Vektor werden mit derselben Genauigkeit ausgegeben
+```
+
+Vektoren aus Zeichenketten oder logischen Werten sind natürlich auch möglich:
+```{r}
+zeichenketten <- c("colourless", "green", "ideas")
+zeichenketten
+logische_werte <- c(TRUE, FALSE, TRUE, TRUE, FALSE)
+logische_werte
+```
+
+Die Länge eines Vektors erfahren wir mit length():
+```{r}
+length(testvektor)
+```
+
+Wir können auch auf einzelne Elemente eines Vektors zugreifen:
+```{r}
+testvektor[1] # Achtung: eckige Klammern!
+testvektor[2]
+zeichenketten[2]
+```
+
+Manchmal brauchen wir Sequenzen von Zahlen, auch diese bekommen wir als
+Vektoren:
+```{r}
+1:4 # diese Schreibweise kam schon bei der Vorstellung von sample() vor
+15:21
+seq(15, 21) # gibt das gleiche aus
+seq(from=1, to=20, by=2) # mit seq() kann auch der Abstand bestimmt werden
+seq(0, 1, 0.1)
+```
+
+Solche Sequenzen können wir auch brauchen, um Teile eines Vektors auszugeben:
+```{r}
+testvektor[1:3] # Elemente 1-3
+logische_werte[2:4]
+letters[5:10] # letters ist von R vorgegeben: Buchstaben von a bis z
+```
+
+Mit rep() können wir Elemente oder Folgen von Elementen wiederholen:
+```{r}
+rep(4, 3) # Die Zahl 4 wird dreimal wiederholt und als Vektor ausgegeben.
+rep(testvektor, 2) # Unser Testvektor wird zweimal wiederholt.
+```
+
+Verschiedene Vektoren können wir miteinander verknüpfen:
+```{r}
+testvektor2 <- c(48, 120, 5, 32)
+neuer_vektor <- c(testvektor, testvektor2); neuer_vektor
+```
+
+Wir können dafür auch append() verwenden, was uns erlaubt, den zweiten
+Vektor nach einer beliebigen Stelle des ersten einzufügen (ohne das
+dritte Argument passiert das gleiche wie oben):
+```{r}
+neuer_vektor <- append(testvektor, testvektor2, 2); neuer_vektor
+```
+
+Mit sort() können wir einen Vektor sortieren:
+```{r}
+sort(neuer_vektor)
+sort(neuer_vektor, decreasing=TRUE) # absteigend sortiert
+```
+
+Praktisch ist, dass man z.B. mathematische Operationen direkt auf ganze
+Vektoren anwenden kann:
+```{r}
+testvektor2 + 2 # jedes Element + 2
+testvektor2 * 3 # jedes Element mit 3 multiplizieren
+```
+
+Das gilt natürlich auch für viele Funktionen:
+```{r}
+sqrt(testvektor2)
+round(testvektor) # Rundungsfunktion
+round(testvektor, 1) # optionales 2. Argument: Anzahl der Nachkommastellen
+```
+
+Oft suchen wir in größeren Datensätzen ganz bestimmte Daten. Dazu stellt R
+einige nützliche Funktionen bereit.
+
+Mit %in% kann man prüfen, ob ein bestimmter Wert in einem Vektor vorkommt:
+```{r}
+neuer_vektor
+48 %in% neuer_vektor
+```
+
+which() gibt an, an welcher Position(!) sich die Daten befinden, die man sucht:
+```{r}
+which(neuer_vektor == 42)
+which(neuer_vektor > 40)
+```
+
+Wenn man dann die Werte der Ergebnisse haben möchte:
+```{r}
+neuer_vektor[which(neuer_vektor > 40)]
+```
+
+Einfacher geht's aber direkt so:
+```{r}
+neuer_vektor[neuer_vektor > 40]
+```
+
+Bedingungen lassen sich mit logischen Operatoren verknüpfen:
+```{r}
+neuer_vektor[neuer_vektor > 40 & neuer_vektor < 50]
+```
+
+
+## Verschachtelung von Funktionen
+Wir haben schon gesehen, dass sich Funktionen verschachteln lassen:
+```{r}
+sqrt(sqrt(81))
+```
+
+Wenn das ausufert, kann es leicht etwas unübersichtlich werden:
+```{r}
+unique(round(sort(seq(1, 10, by = 0.1), decreasing = TRUE)))
+```
+
+Was passiert hier? Bis auf unique() solltest du alle beteiligten Funktionen
+schon kennen (Hilfe aufrufen!). Du kannst die Teile in den Klammern markieren
+und ausführen, um nachzuvollziehen, was da nacheinander ausgeführt wird.
+
+Oder man schreibt einfach übersichtlicheren Code ...
+
+Das Paket `magrittr`, das in `tidyverse` enthalten ist, hat die Verwendung des
+sogenannten Pipe-Operators %>% populär gemacht -- so populär, dass er jetzt
+auch (in etwas anderer Form) in Basis-R enthalten ist: |>
+
+In RStudio kann man einen Pipe-Operator (man kann in den Optionen einstellen,
+welchen) mit der Tastenkombination Strg+Shift+M (Mac: Cmd+Shift+M) einfügen.
+
+Damit lassen sich Werte auf der linken Seite des Operators (z.B. Ergebnisse
+einer Funktion) der Funktion auf der rechten Seite als erstes Argument
+übergeben.
+```{r}
+seq(1, 10, by = 0.1) |>
+  sort(decreasing = TRUE) |>
+  round() |>
+  unique()
+```
+
+Gleich übersichtlicher, oder?
