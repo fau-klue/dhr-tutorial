@@ -1,7 +1,7 @@
 ---
-title: 'Situng 11: Logistische Regression'
-author: "Philipp Heinrich"
-date: "12. Juli 12022"
+title: "Logistic Regression"
+author: "Andreas Blombach & Philipp Heinrich"
+date: "July 19, 2022"
 output: 
   html_document:
     toc: true
