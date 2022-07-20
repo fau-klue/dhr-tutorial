@@ -1,0 +1,858 @@
+---
+title: "R-Grundlagen"
+author: "Andreas Blombach, Philipp Heinrich"
+date: "20.7.2022"
+output:
+  html_document:
+    theme: readable
+    highlight: tango
+    toc: true
+    toc_float: true
+    fig_width: 10
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Programm
+Womit beschäftigen wir uns heute?
+
+- Datentypen in R
+- Öffnen und Speichern von Dateien
+- Umgang mit Tabellen
+- Beschreibung von Daten
+- Visualisierung von Daten
+- statistische Modellierung: (generalisierte) lineare Modelle
+- Keywords und Kollokate
+- Fragen!
+
+
+Zur Erinnerung: Die Hilfe zu einer Funktion lässt sich aufrufen,
+indem man dem Funktionsnamen ein Fragezeichen voranstellt:
+```{r, eval=FALSE}
+?help
+```
+
+Und mit ?? lässt sich nach vagen Begriffen suchen:
+```{r, eval=FALSE}
+??randomforest
+```
+
+
+## Pakete einbinden
+Benötigte Pakete lassen sich zwar grundsätzlich jederzeit
+einbinden, es bietet sich aber an, dies zu Beginn eines Skripts
+zu tun, um den Überblick zu behalten.
+
+```{r packages, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(readxl) # für Excel-Tabellen
+library(psych)
+library(skimr)
+library(corpora)
+library(ggcorrplot)
+```
+
+
+## Datentypen
+Im Vorbereitungsskript ging es bereits um Zahlen, logische Werte
+(TRUE/FALSE), Zeichenketten/Strings (R-Bezeichnung: *character*)
+und Vektoren.
+
+### Faktoren
+Faktoren sind speziell für kategoriale Daten gedacht. Ein Faktor
+hat eine feste Menge von Levels/möglichen Ausprägungen:
+```{r}
+geschlecht <- c(rep("m", 10), rep("w", 20)) |>
+  sample() |> # durchmischen, damit es nach echten Daten aussieht
+  factor() 
+geschlecht
+```
+
+Um die Namen der Ausprägungen/Levels zu verändern, können wir
+levels() verwenden:
+```{r}
+levels(geschlecht) <- c("männlich", "weiblich")
+geschlecht
+```
+
+Wenn man einen Faktor verwendet, um unterschiedliche Gruppen zu
+definieren, ist es sinnvoll, die Kontrollgruppe (oder die Gruppe,
+die als Vergleichsbasis dient), als erste aufzuführen. (Weil
+viele Funktionen die erste Gruppe als Referenzgruppe nehmen.)
+
+Am einfachsten geht das vielleicht mit der Funktion relevel():
+```{r}
+f <- factor(c("a", "a", "c", "b", "b", "b", "d"))
+relevel(f, "b")
+```
+
+Mit der Funktion fct_relevel() (aus tidyverse/forcats) kann man
+die Levels beliebig verschieben:
+```{r}
+fct_relevel(f, "b") # wie relevel()
+fct_relevel(f, "b", after = 2)
+fct_relevel(f, "a", after = Inf) # ans Ende
+```
+
+(In dem Paket befinden sich noch einige weitere sehr praktische
+Funktionen zum Umgang mit Faktoren, z.B. fct_lump() oder
+fct_expand().)
+
+Für ordinalskalierte Daten können wir statt factor() die Funktion
+ordered() verwenden, um R mitzuteilen, dass die Daten eine
+Rangordnung haben:
+```{r}
+bewertung <- c(rep("stimme voll zu", 3),
+               rep("stimme eher zu", 6),
+               rep("weder noch", 8),
+               rep("stimme eher nicht zu", 4),
+               rep("stimme gar nicht zu", 1)) |>
+  sample() # Unordnung
+ordered(bewertung)
+```
+
+Ohne weitere Argumente sortiert die Funktionen die Ausprägungen
+allerdings bloß alphabetisch -- also müssen wir die Reihenfolge
+vorgeben:
+```{r}
+bewertung <- ordered(bewertung, levels = c("stimme gar nicht zu", 
+                                           "stimme eher nicht zu", 
+                                           "weder noch", 
+                                           "stimme eher zu", 
+                                           "stimme voll zu"))
+bewertung
+```
+
+Damit lässt sich der geordnete Faktor nun übrigens auch nach
+Größe sortieren (statt nur alphabetisch):
+```{r}
+sort(bewertung)
+```
+
+
+### Umwandlungsfunktionen
+Wir können Daten auch in einen anderen Datentyp umwandeln:
+```{r}
+as.integer(41.728)
+as.character(.345)
+as.double("5.23")
+as.integer(c(TRUE, FALSE, TRUE, TRUE, FALSE))
+```
+
+
+## Umgang mit Datensätzen
+R kann mit Daten in verschiedensten Formaten umgehen; wir wollen
+uns hier aber auf typische Tabellenformate beschränken.
+
+### Tabellenaufbau
+Tabellen sind im Grunde genommen Listen von Vektoren gleicher Länge
+(wenn dabei alle Daten numerisch sind, können wir anstelle einer
+Tabelle auch eine _Matrix_ verwenden).
+
+Tabellen lesen wir normalerweise aus Dateien ein. R bevorzugt das
+CSV-Format (comma-separated values/character-separated values), mit
+geeigneten Paketen lassen sich aber auch die Dateiformate von Excel
+(z.B. .xslx), SPSS usw. einlesen.
+
+Zu sehr ins Detail können wir leider nicht gehen. Wer das tun möchte,
+kann sich aber bspw. diesen DataCamp-Kurs ansehen:
+https://learn.datacamp.com/courses/importing-data-in-r-part-1
+
+R und einige Pakete liefern netterweise gleich einige Datensätze zu
+Testzwecken mit, sodass wir uns direkt ansehen können, wie so eine
+Tabelle aussieht:
+```{r}
+mtcars # im "data.frame"-Format
+mpg # im "tibble"-Format (tidyverse/tibble)
+```
+
+An beiden Beispielen sehen wir, dass Tabellen aus Zeilen (rows) und
+Spalten (columns) bestehen. Die erste Zeile ist üblicherweise die
+Kopfzeile (header), in der die Namen der Spalten stehen. Bei einem
+tibble wird direkt darunter für jede Spalte ausgegeben, welchen
+Datentyp sie hat:
+
+- chr für character (Zeichenketten/Strings)
+- fct für factor (Variablen, die nur bestimmte Ausprägungen
+  annehmen können)
+- int für integer (ganze Zahlen)
+- dbl für double (Fließkommazahlen, also mit Nachkommastellen)
+- lgl für logical (TRUE oder FALSE)
+
+Volle Liste: https://tibble.tidyverse.org/articles/types.html
+
+Ein "data.frame"-Objekt lässt sich in ein "tibble" umwandeln:
+```{r}
+as_tibble(mtcars)
+```
+
+Nun werden nicht mehr alle Zeilen auf der Konsole ausgegeben. Das
+ist normalerweise wünschenswert. Man kann aber mit der Funktion
+print Zeilenanzahl und maximale Tabellenbreite (in Zeichen) angeben:
+```{r}
+as_tibble(mtcars) |>
+  print(n = 20, width = 40) # "width = Inf" für alle Spalten 
+```
+
+### Tabellen anlegen
+Um eine Tabelle als tibble zu erzeugen:
+```{r}
+tibble(
+  Rang = 1:6,
+  Frequenz = c(555503423, 525757950, 258037531, 254258892, 244546490, 
+               135861000),
+  Freq_pMT = Frequenz / 11660894000 * 1e6,
+  Token = c(",", ".", "und", "die", "der", "in")
+)
+```
+
+(Dies sind die ersten sechs Zeilen der Frequenzliste des DECOW14,
+einer riesigen deutschen Sammlung von Texten aus dem Web.)
+
+Schön daran: Einmal definierte Spalten lassen sich direkt für
+Berechnungen für weitere Spalten verwenden (siehe Frequenz).
+
+
+Um auf eine Tabelle als Objekt zugreifen zu können, gehen wir
+genauso vor wie auch bei Einzelwerten und Vektoren:
+```{r}
+decow <- tibble(
+  Rang = 1:6,
+  Frequenz = c(555503423, 525757950, 258037531, 254258892, 244546490, 
+               135861000),
+  Freq_pMT = Frequenz / 11660894000 * 1e6,
+  Token = c(",", ".", "und", "die", "der", "in")
+)
+```
+
+Die Tabelle sollte jetzt als Objekt unter "Environment" auftauchen.
+Ein Klick darauf zeigt uns die ganze Tabelle (das gleiche bewirkt
+auch die Funktion View()).
+
+
+### Tabellendateien öffnen
+Wer schon Erfahrung mit R hat, kennt wahrscheinlich schon
+read.table(), read.csv(), read.csv2() usw. Alternativ kann man
+Dateien aber auch direkt im "tibble"-Format öffnen. (Und für sehr
+große Dateien bietet sich das Paket "data.table" mit der Funktion
+fread() an, die den Einleseprozess enorm beschleunigen kann.)
+
+Welche Funktion man am besten verwendet, hängt vom Dateiformat und
+der Formatierung ab (also z.B. davon, mit welchen Zeichen Werte
+voneinander getrennt sind, was als Dezimaltrennzeichen verwendet
+wird usw.).
+```{r eval=FALSE}
+?read_delim # tidyverse/readr
+?read.table # Basis-R
+```
+
+Für CSV-Dateien im europäischen Format (Semikolon als Trennzeichen,
+Komma als Dezimaltrennzeichen) verwenden wir read_csv2():
+```{r}
+complexity <- read_csv2("../data/sentence_complexity.csv")
+complexity
+```
+
+Mit teilweise spezifizierten Datentypen:
+```{r}
+complexity <- read_csv2("../data/sentence_complexity.csv",
+                        col_types = cols(id = "i",
+                                         max_syllables = "i",
+                                         tokens = "i",
+                                         max_dependency_distance = "i",
+                                         fin_verbs = "i"))
+complexity
+```
+
+Als Argument übergibt man der Funktion hier einen Dateipfad. Dieser
+kann entweder absolut angegeben werden (unter Windows also beginnend
+mit dem Laufwerksbuchstaben) oder relativ zum aktuellen
+Arbeitsverzeichnis oder -- in .Rmd-Dateien -- relativ zum Speicherort
+des aktuellen Skripts (wie hier geschehen).
+
+Alternativ kann man die Funktion file.choose() verwenden, um über ein
+Dialogfenster eine Datei auszuwählen:
+```{r, eval=FALSE}
+read_csv2(file.choose())
+```
+
+Neben read_csv2() gibt es read_csv() für das amerikanische Format
+(Komma als Trennzeichen, Punkt als Dezimaltrennzeichen), read_tsv()
+für Dateien, in denen Tabulatoren als Trennzeichen verwendet werden,
+und read_delim() als übergeordnete Funktion, bei der man selbst
+angeben kann, welche Zeichen als Trennzeichen usw. verwendet werden.
+
+In RStudio kann man über File -> Import Dataset verschiedene
+Möglichkeiten aufrufen, Tabellendateien zu öffnen (mit Vorschau
+und verschiedenen Optionen):
+
+- From Text (base)...: basiert auf den Grundfunktionen, also
+  read.table() usw. ("data.frame"-Format)
+- From Text (readr)...: "tibble"-Format
+- From Excel...: Excel-Dateien ("tibble"-Format)
+- From SPSS...: SPSS-Dateien ("tibble"-Format)
+- From SAS...: SAS-Dateien ("tibble"-Format)
+- From Stata...: Stata-Dateien ("tibble"-Format)
+
+Klickt man nach Auswahl passender Optionen dann auf "Import", kann
+man sich den verwendeten R-Befehl auch aus der Konsole in sein
+eigenes Skript kopieren.
+
+Ein Beispiel zum Öffnen einer Excel-Datei:
+```{r}
+complexity <- read_excel("../data/sentence_complexity.xlsx", sheet = 1)
+complexity
+```
+
+*Wer eigene Daten dabei hat, sollte spätestens an dieser Stelle
+einmal ausprobieren, sie zu öffnen. Erfahrungsgemäß tauchen dabei
+immer irgendwelche Probleme auf ...*
+
+
+### Tabellen speichern
+Um Tabellen zu speichern, gibt es analog zu den diversen
+read_-Funktionen passende write_-Funktionen, denen man zuerst
+den Namen des Objekts, dann den gewünschten Speicherpfad und ggf.
+weitere Parameter übergibt:
+```{r, eval=FALSE}
+write_csv2(complexity, file.choose())
+write_csv2(complexity, "../data/sentence_complexity.csv")
+```
+
+
+### Auf Tabellenteile zugreifen
+Um auf einzelne Spalten (meist einzelne statistische Variablen)
+zuzugreifen, geben wir den Namen der Tabelle ein, gefolgt von einem
+Dollarzeichen und dem Namen der Spalte. Wir erhalten einen Vektor:
+```{r}
+decow$Token
+decow$Frequenz
+```
+
+Um auf Teile der Tabelle zuzugreifen, kann man eckige Klammern
+verwenden. Das funktioniert genauso wie mit Vektoren, nur dass wir
+diesmal zwei Positionen angeben müssen: Zeile und Spalte.
+```{r}
+decow[2, 3] # zweite Zeile, dritte Spalte
+decow[3, 2:4] # dritte Zeile, Spalten 2 bis 4
+decow[3,] # dritte Zeile, alle Spalten (Komma nicht vergessen!)
+decow[, 3] # dritte Spalte (geht auch ohne Komma, ist dann aber verwirrender ...)
+decow[c(1, 3),] # 1 und dritte Zeile, alle Spalten
+```
+
+Weil man die richtige Reihenfolge erfahrungsgemäß gerne einmal
+vergisst, hilft vielleicht ein alberner Merkspruch:  
+
+*Erst die Zeile, dann die Spalt',  
+Bis es auch der letzte schnallt.*
+
+(Bessere Vorschläge sind jederzeit willkommen.)
+
+
+Zur Auswahl bestimmter Spalten gibt es auch noch select():
+```{r}
+decow |>
+  select(Freq_pMT, Token)
+
+decow |>
+  select(Frequenz:Token)
+```
+
+Umbenennen kann man die Variablen dabei auch:
+```{r}
+decow |>
+  select(Frequenz_pMT = Freq_pMT, Token)
+```
+
+(Achtung, das ist erst einmal nur die Ausgabe der Funktion, das
+Objekt *decow* bleibt unverändert -- sofern wir ihm die Ausgabe
+nicht zuweisen.)
+
+Wenn es nur ums Umbenennen geht, man aber eigentlich die übrigen
+Spalten beibehalten möchte, ist rename() praktischer:
+```{r}
+decow |>
+  rename(Frequenz_pMT = Freq_pMT)
+```
+
+select() ist auch praktisch, wenn man bloß die Reihenfolge der
+Spalten verändern möchte:
+```{r}
+decow |>
+  select(Token, everything()) # everything(): kleine Hilfsfunktion
+```
+
+### Tabellen filtern
+Oft will man Teile einer Tabelle nicht anhand ihrer Position
+auswählen, sondern anhand bestimmter Kriterien, die die enthaltenen
+Daten erfüllen müssen. Dafür gibt es die Funktion filter().
+
+Welche Sätze im eben eingelesenen Datensatz wurden z.B. als besonders
+komplex bewertet?
+```{r}
+complexity |>
+  filter(mean_complexity > 6)
+```
+
+Wenn mehrere Bedingungen gleichzeitig erfüllt sein sollen, kann man
+sie mit Kommata abtrennen:
+```{r}
+complexity |>
+  filter(tokens >= 30, mean_word_length >= 5)
+```
+
+Ein logisches UND funktioniert aber ebenso:
+```{r}
+complexity |>
+  filter(tokens >= 30 & mean_word_length >= 5)
+```
+
+Logische Operatoren, die hier verwendet werden können, kamen schon
+in der Datei zur Vorbereitung vor. Zur Übung:
+
+- alle Zeilen auswählen, in denen denen genau vier finite Verben
+  (fin_verbs) vorkommen
+- alle Zeilen auswählen, in denen max_syllables größer oder gleich
+  9 ist
+- alle Zeilen auswählen, in denen die Komplexität zwischen 2 und 3
+  liegt
+
+### Neue Spalten hinzufügen
+Manchmal will man einer bestehenden Tabelle weitere Spalten
+anhängen. Diese Vektoren müssen natürlich dieselbe Länge haben
+wie die anderen Spalten der Tabelle.
+
+Die einfachste Möglichkeit sieht m.E. so aus:
+```{r}
+complexity$length_chars <- str_length(complexity$sentence) # Satzlänge in Zeichen
+complexity
+```
+
+Außerdem gibt es die Funktion mutate(), mit der man auch gleich
+mehrere Spalten auf einmal anfügen und Berechnungen mit den
+bestehenden Spalten anstellen kann:
+```{r}
+complexity |>
+  select(sentence) |>
+  mutate(length_chars = str_length(sentence),
+         length_chars_centered = length_chars - mean(length_chars))
+```
+
+### Spalten löschen
+Um Spalten zu löschen, gibt es mehrere Möglichkeiten.
+
+Einfach ist es, einfach alle Spalten außer der zu entfernenden
+auszuwählen:
+```{r}
+complexity |>
+  select(-id)
+```
+
+Das Ergebnis muss man dann natürlich wieder einem Objekt zuweisen.
+
+Alternativ kann man auch einfach eine ganze Spalte auf NULL
+setzen, dann verschwindet sie aus dem ursprünglichen Objekt:
+```{r}
+complexity$length_chars <- NULL
+complexity
+complexity$length_chars <- str_length(complexity$sentence) # wieder anfügen
+```
+
+### Tabellen sortieren
+Will man sich die Zeilen einer Tabelle in anderer Reihenfolge
+anzeigen lassen, kann man die Funktion arrange() verwenden:
+```{r}
+complexity |>
+  arrange(desc(mean_complexity))
+```
+desc() gibt an, dass die Spalte absteigend sortiert werden soll.
+
+Man kann zusätzlich auch nach weiteren Spalten sortieren:
+```{r}
+complexity |>
+  arrange(fin_verbs, tokens)
+
+complexity |>
+  arrange(desc(max_syllables), desc(fin_verbs), desc(tokens))
+```
+Sollte eine Spalte fehlende Werte (`NA`) enthalten, werden diese
+stets ans Ende gesetzt, egal, ob man auf- oder absteigend sortiert.
+
+
+### Lang- und Breitformat (long/wide)
+In der Datenwildnis bekommt man es früher oder später mit
+unterschiedlichen Präsentationsformen von Tabellen zu tun:
+
+- Im "Breitformat" steht jede Zeile für eine
+  Beobachtungseinheit/statistische Einheit (z.B. Person, Land,
+  Text oder Wort).
+  Da es keine Redundanz gibt, sind Tabellen in diesem Format
+  für Menschen einfach zu verstehen und zu bearbeiten. Im Falle
+  wiederholter Messungen (z.B.: selbe Variable zu verschiedenen
+  Zeitpunkten oder unter verschiedenen Bedingungen) gibt es
+  dafür separate Spalten.
+- Im "Langformat" gibt es dagegen mehrere Zeilen für dieselbe
+  Beobachtungseinheit, nämlich eine für jeden Zeitpunkt oder
+  jede Bedingung. Alle Messungen derselben statistischen
+  Variable befinden sich dann in derselben Spalte, während eine
+  weitere Spalte die Kategorie (Zeit, Bedingung, ...) angibt.
+
+Da beide Formate gebräuchlich sind und viele Funktionen in R
+ein bestimmtes Eingabeformat erwarten (überwiegend das Langformat),
+sollte man wissen, wie man Tabellen von einem ins andere umwandeln
+kann. Im Tidyverse gibt es dafür die beiden Funktionen
+pivot_longer() und pivot_wider().
+
+Zur Veranschaulichung nutzen wir Häufigkeitsdaten ausgewählter
+Substantive im geschriebenen und gesprochenen Teil des British
+National Corpus (BNC; siehe `?BNCcomparison`):
+```{r}
+BNCcomparison |> as_tibble()
+```
+
+Da die Spalten `written` und `spoken` beide Häufigkeiten enthalten,
+könnten wir diese Werte in eine einzige Spalte packen. Eine weitere
+müsste dann bloß die Modalität (geschrieben/gesprochen) angeben.
+
+Um vom Breit- ins Langformat zu wechseln, benutzen wir pivot_longer():
+```{r}
+BNC_long <- BNCcomparison |>
+  pivot_longer(cols = written:spoken,
+               names_to = "modality",
+               values_to = "frequency")
+BNC_long
+```
+
+
+Für die umgekehrte Richtung entsprechend pivot_wider():
+```{r}
+BNC_long |>
+  pivot_wider(names_from = "modality",
+              values_from = "frequency")
+```
+
+In einer Vignette gibt es noch jede Menge weiterer Beispiele dazu:
+```{r, eval=FALSE}
+vignette("pivot")
+```
+
+
+## Daten beschreiben
+Extrem mächtig sind in Kombination die beiden Funktionen group_by()
+zur Aufspaltung eines Datensatzes in Gruppen und summarise() zur
+Anwendung beliebiger Operationen auf diese Gruppen (Summenbildung,
+Berechnung von Mittelwerten oder Standardabweichungen, ...):
+```{r}
+complexity |>
+  group_by(fin_verbs) |> 
+  summarise(
+    Anzahl = n(),
+    Mittlere_Satzlaenge = mean(tokens),
+    Mittlere_Komplexitaet = mean(mean_complexity)
+  )
+```
+
+### Deskriptive Statistiken
+Simulierte Daten mit Häufigkeit des Alkoholkonsums diverser Personen, ihrem
+Alter, Geschlecht und den erreichten Punkten in einem Wissenstest:
+```{r}
+punkte <- read_csv2("../data/punkte.csv")
+```
+
+Mittelwert, Median, Spannweite, Interquartilsabstand und Standardabweichung der
+Punkte:
+```{r}
+mean(punkte$Punkte)
+median(punkte$Punkte)
+range(punkte$Punkte)
+IQR(punkte$Punkte)
+sd(punkte$Punkte)
+```
+
+describe() aus dem `psych`-Paket:
+```{r}
+describe(punkte)
+```
+
+describeBy() aus demselben Paket:
+```{r}
+describeBy(punkte, punkte$Geschlecht)
+```
+
+Manuelle Überblicksstatistiken
+```{r}
+punkte |>
+  group_by(Geschlecht) |>
+  summarise(
+    Alter_mean = mean(Alter),
+    Alter_sd = sd(Alter),
+    Punkte_mean = mean(Punkte),
+    Punkte_sd = sd(Punkte),
+    Alkoholkonsum_mean = mean(Alkoholkonsum),
+    Alkoholkonsum_sd = sd(Alkoholkonsum)
+  )
+```
+skim() aus dem `skimr`-Paket:
+```{r}
+skim(punkte)
+```
+Auch nach Gruppen möglich:
+```{r}
+punkte |>
+  group_by(Geschlecht) |>
+  skim()
+```
+
+
+
+
+### Fehlende Daten
+Für fehlende Werte gibt es in R den speziellen Wert `NA`:
+```{r}
+NA
+zahlen <- c(13, 38.2, 8, NA, 98.21, NA, 8.15); zahlen
+c("a", NA, "z", "e")
+```
+
+Mehr Informationen:
+```{r eval=FALSE}
+?"NA"
+```
+
+Will man mit Vektoren rechnen, die NA-Werte enthalten, ist das
+Ergebnis in der Regel NA:
+```{r}
+mean(zahlen)
+sd(zahlen)
+```
+
+Viele Funktionen erlauben aber den optionalen Parameter na.rm,
+den man auf TRUE setzen kann, um fehlende Werte zu ignorieren:
+```{r}
+mean(zahlen, na.rm = TRUE)
+sd(zahlen, na.rm = TRUE)
+```
+
+Daneben gibt es (u.a.) auch die Funktion na.omit(), die alle
+fehlenden Werte aus einem Vektor oder alle Zeilen(!) aus einer
+Tabelle, in denen fehlende Werte vorkommen, entfernt.
+
+Die Anwendung auf Tabellen will also gut überlegt sein -- u.U.
+wirft man damit verwertbare Daten weg!
+
+```{r}
+zahlen <- na.omit(zahlen)
+mean(zahlen)
+
+test <- tibble(
+  Geschlecht = c("männlich", "weiblich", NA, "weiblich") |> factor(),
+  Punkte = c(10, 12, 11, 9)
+)
+test
+test |>
+  summarise(mean = mean(Punkte))
+test |>
+  na.omit() |>
+  summarise(mean = mean(Punkte))
+```
+Daneben gibt es noch die Tidyverse-Funktion drop_na(), mit der
+alle Zeilen entfernt werden, die in den angegebenen Spalten
+fehlende Werte enthalten:
+```{r}
+test |>
+  drop_na() # wie na.omit(): alle Spalten berücksichtigt
+test |>
+  drop_na(Geschlecht) # -> Zeile 3 wird entfernt
+test |>
+  drop_na(Punkte) # -> Zeile 3 wird nicht entfernt
+```
+
+Weitere nützliche Funktionen aus dem Tidyverse sind z.B.
+replace_na() (um in bestimmten Spalten z.B. alle `NA`-Werte
+auf 0 zu setzen) oder fill().
+
+
+
+## Daten graphisch darstellen
+Eine gute Einführung in die Visualisierung von Daten mit
+ggplot2/Tidyverse gibt es unter:
+http://r4ds.had.co.nz/data-visualisation.html.
+
+ggplot2 setzt eine geschichtete "Graphikgrammatik" um
+(**grammar of graphics**). Auf den ersten Blick wirkt das
+womöglich verwirrend, weil sich die Syntax etwas von
+Standard-R unterscheidet. Eine statistische Graphik besteht
+in diesem Modell aus der Zuordnung (*mapping*) von Variablen
+des Datensatzes (*data*) zu ästhetischen Attributen (*aes*)
+geometrischer Objekte (*geom*).
+ 
+- `data`: Datensatz, der die Variablen enthält, die graphisch
+  dargestellt werden sollen
+- `geom`: Art geometrischer Objekte in der Graphik, z.B.
+  Linien, Punkte oder Säulen
+- `aes`: ästhetische Attribute der geometrischen Objekte, z.B.
+  die Position im Koordinatensystem (x, y), Farbe oder Form.
+  Diese Attribute werden Variablen des Datensatzes zugeordnet.
+  
+(Vergleiche https://moderndive.com/2-viz.html)
+
+### Säulendiagramme
+Ein Säulendiagramm mit ggplot():
+```{r}
+ggplot(data = complexity) + # Datensatz angeben
+  geom_bar(mapping = aes(x = tokens)) + # Welche Darstellung, welche Variable wohin?
+  labs(title = "Satzlängenverteilung", # Titel über der Graphik
+       x = "Satzlänge", # Beschriftung der x-Achse
+       y = "Häufigkeit") # Beschriftung der y-Achse
+```
+
+```{r}
+complexity |> # sehr üblich: Datensatz per Pipe an ggplot() übergeben -- so kann man auch noch Funktionen zwischenschalten
+  mutate(fin_verbs = factor(fin_verbs)) |> # fin_verbs für die Graphik zu Faktor machen
+  ggplot(mapping = aes(x = tokens, fill = fin_verbs)) + # mapping hier gilt für alle folgenden Funktionen
+  geom_bar() +
+  labs(title = "Satzlängenverteilung",
+       x = "Satzlänge",
+       y = "Häufigkeit",
+       fill = "Finite Verben")
+```
+
+
+Um ggf. die Anordnung der Säulen zu ändern, müssen wir wissen,
+wie ggplot sie standardmäßig sortiert:
+- wenn das Objekt eine Zahl ist, nach Größe
+- wenn das Objekt ein Faktor ist, nach Reihenfolge der
+  Ausprägungen
+- wenn das Objekt ein Vektor aus Zeichenketten (characters)
+  ist, nach Alphabet
+
+
+Liegen die Häufigkeiten direkt vor (wie in unserer oben
+erstellten Tabelle `decow`), lässt sich geom_col() verwenden.
+Man muss dann lediglich auch angeben, aus welcher Spalte die
+Werte auf der y-Achse kommen sollen:
+```{r}
+decow |>
+  mutate(Token = fct_inorder(Token)) |> # damit die Reihenfolge der Säulen stimmt
+  ggplot(mapping = aes(x = Token, y = Freq_pMT)) +
+  geom_col() +
+  labs(title = "Die häufigsten Tokens im DECOW14",
+       y = "Häufigkeit pro Million Tokens")
+```
+
+Um das Erscheinungsbild zu ändern, lassen sich auch vordefinierte Themes
+verwenden (und ggf. noch weiter anpassen). Eine Übersicht gibt es hier:
+https://ggplot2.tidyverse.org/reference/ggtheme.html
+Weitere Themes lassen sich über separate Pakete installieren, z.B.:
+
+- https://github.com/jrnold/ggthemes
+- https://github.com/bbc/bbplot
+- https://cran.r-project.org/web/packages/xkcd/index.html
+
+```{r}
+decow |>
+  mutate(Token = fct_inorder(Token)) |>
+  ggplot(mapping = aes(x = Token, y = Freq_pMT)) +
+  geom_col() +
+  labs(title = "Die häufigsten Tokens im DECOW14",
+       y = "Häufigkeit pro Million Tokens") +
+  theme_bw()
+```
+
+Wenn man am Ende coord_flip() anfügt, kann man aus einem Säulendiagramm
+übrigens ganz einfach ein Balkendiagramm machen.
+
+
+### Histogramme
+```{r}
+complexity |> 
+  ggplot(aes(mean_word_length)) +
+  geom_histogram() +
+  labs(title = "Verteilung mittlerer Wortlängen über die Sätze",
+       x = "Mittlere Wortlänge in Zeichen",
+       y = "Häufigkeit")
+```
+
+Die Gestalt des Histogramms hängt sehr von der Anzahl der
+Säulen (bins) ab -- beim Vergleich unterschiedlicher Histogramme muss
+man also etwas aufpassen.
+
+Man kann die Balkenzahl selbst festlegen oder eine bestimmte
+Methode zur Berechnung verwenden:
+```{r}
+complexity |> 
+  ggplot(aes(mean_word_length)) +
+  geom_histogram(bins = 10) +
+  labs(title = "Verteilung mittlerer Wortlängen über die Sätze",
+       x = "Mittlere Wortlänge in Zeichen",
+       y = "Häufigkeit")
+```
+
+### Boxplots & Violin-Plots
+Ideal für Gruppenvergleiche
+```{r}
+punkte |>
+  ggplot(aes(x = Geschlecht,
+             y = Alter)) +
+  geom_boxplot() +
+  labs(title = "Stichprobenzusammensetzung")
+```
+
+```{r}
+punkte |>
+  ggplot(aes(x = Geschlecht,
+             y = Alter)) +
+  geom_violin() +
+  labs(title = "Stichprobenzusammensetzung")
+```
+
+
+### Streudiagramme
+```{r}
+complexity |>
+  ggplot(aes(x = tokens, y = mean_complexity)) +
+  geom_point(alpha = .6) +
+  scale_x_continuous(trans = "log10") +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") +
+  labs(title = "Zusammenhang zwischen Satzlänge und Komplexität",
+       x = "Satzlänge (logarithmiert)",
+       y = "Komplexität")
+```
+
+Man kann in einen solchen Plot natürlich auch noch mehr Informationen packen:
+```{r, fig.width=12}
+complexity |>
+  ggplot(aes(x = tokens,
+             y = mean_complexity,
+             size = max_dependency_distance,
+             colour = fin_verbs)) +
+  geom_point(alpha = .6) +
+  scale_x_continuous(trans = "log10") +
+  labs(title = "Zusammenhang zwischen Satzlänge und Komplexität",
+       x = "Satzlänge (logarithmiert)",
+       y = "Komplexität",
+       colour = "Finite Verben",
+       size = "Max. Dependenzabstand")
+```
+
+
+### Korrelationsplots
+```{r, fig.width=12}
+complexity |>
+  select(mean_word_length:mean_band_subtlex, length_chars, mean_complexity) |>
+  cor() |>
+  ggcorrplot(type = "lower",
+             outline.color = "white",
+             lab = TRUE)
+```
+
+
+
+### Weitere Graphiken
+Eine sehr schöne Liste von Graphiken, die sich mit ggplot
+erzeugen lassen (samt Code) gibt es hier:  
+http://r-statistics.co/Top50-Ggplot2-Visualizations-MasterList-R-Code.html
